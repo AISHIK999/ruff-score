@@ -245,7 +245,8 @@ class RuffScorer:
             result = subprocess.run(cmd, capture_output=True, text=True, check=False)
             if result.stdout:
                 sys.stdout.flush()
-                return [Path(p) for p in result.stdout.split("\n")[:-1]]
+                all_files = [Path(p) for p in result.stdout.split("\n")[:-1]]
+                return [p for p in all_files if p.suffix == ".py"]
         except subprocess.CalledProcessError as e:
             print(f"Error running Ruff: {e}")
         return []
@@ -346,7 +347,6 @@ class RuffScorer:
     def score_directory(self, directory: Path, config_file: Path | None = None) -> dict:
         """Score all Python files in a directory."""
         result = self.run_ruff(directory, config_file)
-        print(result.issues)
 
         # Count total statements in all Python files
         total_statements = 0
