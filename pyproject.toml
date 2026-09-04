@@ -1,6 +1,6 @@
 [project]
 name = "ruff-score"
-version = "0.2.0"
+version = "0.4.0"
 description = "A Pylint-style scoring system for Ruff linter output"
 authors = [
     {name = "Aishik Mukherjee", email = "aishikm2002@gmail.com"}
@@ -46,4 +46,22 @@ packages = ["src/ruff_score"]
 [dependency-groups]
 dev = [
     "twine>=6.1.0",
+]
+
+[tool.ruff]
+exclude = [".venv"]
+line-length = 120
+force-exclude = true
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+  "ANN204",
+  "D205",
+  "D401",
+  "CPY001",
+  "BLE001",
+  "PLR2004",
+  "S603",
+  "T201"
 ]

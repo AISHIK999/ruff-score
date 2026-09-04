@@ -2,10 +2,11 @@
 
 import sys
 from pathlib import Path
+
 from .scorer import RuffScorer
 
 
-def main():
+def main() -> None:
     """Main entry point for the CLI."""
     if len(sys.argv) < 2:
         print("Usage: ruff-score <file_or_directory> [config_file]")
@@ -18,9 +19,9 @@ def main():
     scorer = RuffScorer()
 
     if Path(target).is_file():
-        result = scorer.score_file(target, config_file)
+        result = scorer.score_file(Path(target), config_file)
     else:
-        result = scorer.score_directory(target, config_file)
+        result = scorer.score_directory(Path(target), config_file)
 
     scorer.print_report(result)
 
