@@ -1,5 +1,4 @@
-"""
-Ruff Quality Score Calculator
+"""Ruff Quality Score Calculator
 Implements a Pylint-style scoring system for Ruff output.
 
 Rule categories/prefixes are sourced from https://docs.astral.sh/ruff/rules/
@@ -9,11 +8,23 @@ prefix must be extracted as the full leading alphabetic run, not just the
 first character.
 """
 
+from __future__ import annotations
+
 import ast
 import json
 import subprocess
+import sys
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import ClassVar
+
+
+@dataclass
+class CheckResult:
+    """Data model for Ruff check result."""
+
+    files: list[Path] = field(default_factory=list)
+    issues: list[dict] = field(default_factory=list)
 
 
 class RuffScorer:
@@ -27,7 +38,7 @@ class RuffScorer:
     #                 bumped up for security)
     # "convention" -> naming/docs/style/import conventions (Pylint C-equivalent)
     # "refactor"   -> modernization / simplification / structure (Pylint R-equivalent)
-    RULE_CATEGORIES: Dict[str, str] = {
+    RULE_CATEGORIES: ClassVar = {
         # --- Correctness / errors ---
         "E": "error",  # pycodestyle Error
         "F": "error",  # Pyflakes
@@ -101,7 +112,7 @@ class RuffScorer:
     # error counts get their usual x5 multiplier baked in via CATEGORY_MULTIPLIER,
     # but individual prefixes can still be nudged with a per-prefix weight for
     # severity within a category (e.g. security issues weigh more than a stray print).
-    RULE_WEIGHTS: Dict[str, int] = {
+    RULE_WEIGHTS: ClassVar = {
         # errors
         "E": 5,
         "F": 5,
@@ -172,13 +183,14 @@ class RuffScorer:
     }
 
     def __init__(self, default_weight: int = 1, default_category: str = "refactor"):
+        """Initialize RuffScore."""
         self.default_weight = default_weight
         self.default_category = default_category
 
-    def count_statements(self, file_path: str) -> int:
+    def count_statements(self, file_path: Path) -> int:
         """Count the number of statements in a Python file."""
         try:
-            with open(file_path, "r", encoding="utf-8") as f:
+            with file_path.open(encoding="utf-8") as f:
                 tree = ast.parse(f.read())
             return self._count_statements_in_node(tree)
         except Exception as e:
@@ -197,8 +209,7 @@ class RuffScorer:
         return count
 
     def _get_rule_prefix(self, rule_code: str) -> str:
-        """
-        Resolve a Ruff code like 'E501', 'PLE0101', 'ASYNC100', or 'C401' to
+        """Resolve a Ruff code like 'E501', 'PLE0101', 'ASYNC100', or 'C401' to
         its category prefix ('E', 'PLE', 'ASYNC', 'C4' respectively).
 
         Most Ruff prefixes are purely alphabetic (E, F, PLE, ASYNC, ...), but
@@ -227,6 +238,18 @@ class RuffScorer:
                 break
         return alpha
 
+    def _get_checked_files(self, cmd: list[str]) -> list[Path]:
+        """Get a list of files checked by Ruff."""
+        cmd.extend(["--show-files"])
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+            if result.stdout:
+                sys.stdout.flush()
+                return [Path(p) for p in result.stdout.split("\n")[:-1]]
+        except subprocess.CalledProcessError as e:
+            print(f"Error running Ruff: {e}")
+        return []
+
     def get_rule_weight(self, rule_code: str) -> int:
         """Get the weight for a specific rule code."""
         prefix = self._get_rule_prefix(rule_code)
@@ -234,29 +257,30 @@ class RuffScorer:
 
     def get_rule_category(self, rule_code: str) -> str:
         """Get the Pylint-style category (error/warning/convention/refactor)
-        for a specific rule code."""
+        for a specific rule code.
+        """
         prefix = self._get_rule_prefix(rule_code)
         return self.RULE_CATEGORIES.get(prefix, self.default_category)
 
-    def run_ruff(self, path: str, config_file: str = None) -> List[Dict]:
+    def run_ruff(self, path: Path, config_file: Path | None = None) -> CheckResult:
         """Run Ruff and return JSON output."""
         cmd = ["ruff", "check", "--output-format=json", path]
         if config_file:
             cmd.extend(["--config", config_file])
-
         try:
             result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+            checked_files = self._get_checked_files(cmd)
             if result.stdout:
-                return json.loads(result.stdout)
-            return []
+                return CheckResult(files=checked_files, issues=json.loads(result.stdout))
+            return CheckResult(files=checked_files)
         except subprocess.CalledProcessError as e:
             print(f"Error running Ruff: {e}")
-            return []
+            return CheckResult()
         except json.JSONDecodeError as e:
             print(f"Error parsing Ruff JSON output: {e}")
-            return []
+            return CheckResult()
 
-    def categorize_issues(self, issues: List[Dict]) -> Dict[str, int]:
+    def categorize_issues(self, issues: list[dict]) -> dict[str, int]:
         """Categorize issues by Pylint-style type (error/warning/convention/refactor)."""
         categories = {"error": 0, "warning": 0, "convention": 0, "refactor": 0}
 
@@ -267,9 +291,7 @@ class RuffScorer:
 
         return categories
 
-    def calculate_score(
-        self, issues: List[Dict], total_statements: int
-    ) -> Tuple[float, Dict]:
+    def calculate_score(self, issues: list[dict], total_statements: int) -> tuple[float, dict]:
         """Calculate Pylint-style score.
 
         Uses the standard Pylint formula:
@@ -306,7 +328,7 @@ class RuffScorer:
 
         return score, categories
 
-    def score_file(self, file_path: str, config_file: str = None) -> Dict:
+    def score_file(self, file_path: Path, config_file: Path | None = None) -> dict:
         """Score a single file."""
         issues = self.run_ruff(file_path, config_file)
         statements = self.count_statements(file_path)
@@ -321,30 +343,29 @@ class RuffScorer:
             "raw_issues": issues,
         }
 
-    def score_directory(self, directory: str, config_file: str = None) -> Dict:
+    def score_directory(self, directory: Path, config_file: Path | None = None) -> dict:
         """Score all Python files in a directory."""
-        issues = self.run_ruff(directory, config_file)
+        result = self.run_ruff(directory, config_file)
+        print(result.issues)
 
         # Count total statements in all Python files
         total_statements = 0
-        py_files = list(Path(directory).rglob("*.py"))
+        for py_file in result.files:
+            total_statements += self.count_statements(py_file)
 
-        for py_file in py_files:
-            total_statements += self.count_statements(str(py_file))
-
-        score, categories = self.calculate_score(issues, total_statements)
+        score, categories = self.calculate_score(result.issues, total_statements)
 
         return {
             "directory": directory,
             "score": score,
             "statements": total_statements,
-            "files_analyzed": len(py_files),
+            "files_analyzed": len(result.files),
             "issues": categories,
-            "total_issues": len(issues),
-            "raw_issues": issues,
+            "total_issues": len(result.issues),
+            "raw_issues": result.issues,
         }
 
-    def print_report(self, result: Dict):
+    def print_report(self, result: dict) -> None:
         """Print a formatted report."""
         print("=" * 50)
         print("RUFF QUALITY SCORE REPORT")

@@ -1,5 +1,4 @@
-"""
-Ruff Score - A Pylint-style scoring system for Ruff linter output.
+"""Ruff Score - A Pylint-style scoring system for Ruff linter output.
 
 This library provides a scoring system similar to Pylint's quality score
 but for Ruff linter output. It analyzes code quality based on Ruff rules
