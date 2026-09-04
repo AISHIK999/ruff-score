@@ -21,20 +21,21 @@ pip install ruff-score
 ## Quick Start
 
 ```python
+from pathlib import Path
 from ruff_score import RuffScorer
 
 scorer = RuffScorer()
 
 # Score a single file
-result = scorer.score_file("myfile.py")
+result = scorer.score_file(Path("myfile.py"))
 print(f"Score: {result['score']:.2f}/10.00")
 
 # Score a directory
-result = scorer.score_directory("src/")
+result = scorer.score_directory(Path("src/"))
 scorer.print_report(result)
 
 # Score against a specific Ruff config
-result = scorer.score_directory("src/", config_file="pyproject.toml")
+result = scorer.score_directory(Path("src/"), config_file=Path("pyproject.toml"))
 ```
 
 ## How It Works
@@ -112,10 +113,11 @@ scorer.get_rule_category("S608")    # -> "warning"
 ```python
 # check_quality.py
 import sys
+from pathlib import Path
 from ruff_scorer import RuffScorer
 
 scorer = RuffScorer()
-result = scorer.score_directory("src/")
+result = scorer.score_directory(Path("src/"))
 scorer.print_report(result)
 
 THRESHOLD = 7.0
