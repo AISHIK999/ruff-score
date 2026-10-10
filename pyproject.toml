@@ -1,31 +1,33 @@
+[build-system]
+requires = ["hatchling>=1.27"]  # 1.27+ understands the SPDX `license` / `license-files` fields
+build-backend = "hatchling.build"
+
 [project]
 name = "ruff-score"
-version = "0.4.0"
+version = "0.4.1"
 description = "A Pylint-style scoring system for Ruff linter output"
 authors = [
     {name = "Aishik Mukherjee", email = "aishikm2002@gmail.com"}
 ]
 readme = "README.md"
-requires-python = ">=3.8"
-dependencies = [
-    "build>=1.2.2.post1",
-    "ruff>=0.12.0",
-    "twine>=6.1.0",
-]
-license = {text = "MIT"}
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
 keywords = ["ruff", "linter", "code-quality", "pylint", "scoring"]
 classifiers = [
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Software Development :: Quality Assurance",
     "Topic :: Software Development :: Libraries :: Python Modules",
+]
+# Runtime dependencies only: the tool shells out to ruff.
+dependencies = [
+    "ruff>=0.12.0",
 ]
 
 [project.urls]
@@ -36,17 +38,19 @@ Issues = "https://github.com/AISHIK999/ruff-score/issues"
 [project.scripts]
 ruff-score = "ruff_score.cli:main"
 
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+[dependency-groups]
+dev = [
+    "build>=1.2.2.post1",
+    "pytest>=8.0",
+    "twine>=6.1.0",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/ruff_score"]
 
-[dependency-groups]
-dev = [
-    "twine>=6.1.0",
-]
+[tool.pytest.ini_options]
+testpaths = ["unit_test"]
+python_files = ["score_checker.py"]
 
 [tool.ruff]
 exclude = [".venv"]
@@ -63,5 +67,14 @@ ignore = [
   "BLE001",
   "PLR2004",
   "S603",
-  "T201"
+  "T201",
+  # Mutually exclusive pairs (Ruff warns on every run and silently picks one)
+  "D203",
+  "D213",
+  # Conflict with `ruff format`
+  "COM812",
+  "ISC001",
 ]
+
+[tool.ruff.lint.per-file-ignores]
+"unit_test/**" = ["S101", "D", "ANN", "INP001"]
